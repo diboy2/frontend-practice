@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Angular App</title>
+    <!-- Angular UMD Bundles -->
+    <script src="https://unpkg.com/@angular/core@16/bundles/core.umd.js"></script>
+    <script src="https://unpkg.com/@angular/common@16/bundles/common.umd.js"></script>
+    <script src="https://unpkg.com/@angular/platform-browser@16/bundles/platform-browser.umd.js"></script>
+    <script src="https://unpkg.com/@angular/platform-browser-dynamic@16/bundles/platform-browser-dynamic.umd.js"></script>
+    <script src="https://unpkg.com/rxjs@7/dist/bundles/rxjs.umd.js"></script>
+
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .app {
+            text-align: center;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #dd0031;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            font-weight: bold;
+        }
+        button:hover {
+            background: #c3002f;
+        }
+        .counter {
+            font-size: 48px;
+            margin: 20px 0;
+            color: #dd0031;
+        }
+        .items {
+            margin-top: 20px;
+        }
+        .item {
+            padding: 8px;
+            margin: 5px 0;
+            background: #f0f0f0;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .item button {
+            padding: 5px 10px;
+            font-size: 12px;
+            background: #ff6b6b;
+        }
+        input {
+            padding: 8px;
+            font-size: 16px;
+            margin-right: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        h1 {
+            color: #dd0031;
+        }
+        .angular-logo {
+            font-size: 30px;
+        }
+        .api-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+        .users {
+            text-align: left;
+        }
+        .user-card {
+            padding: 12px;
+            margin: 8px 0;
+            background: white;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+        }
+        .user-card strong {
+            color: #35495e;
+            display: block;
+            margin-bottom: 4px;
+        }
+        .user-card p {
+            margin: 0;
+            color: #6c757d;
+            font-size: 14px;
+        }
+        .loading {
+            color: #dd0031;
+        }
+        .error {
+            color: #ff6b6b;
+        }
+    </style>
+</head>
+<body>
+    <my-app></my-app>
+
+    <script>
+        // Destructure Angular APIs from UMD bundles
+        const { Component, NgModule, Input, Output, EventEmitter, Injectable, OnInit } = ng.core;
+        const { BrowserModule } = ng.platformBrowser;
+        const { platformBrowserDynamic } = ng.platformBrowserDynamic;
+        const { CommonModule } = ng.common;
+        const { Observable, of, from, throwError } = rxjs;
+        const { map, catchError, tap } = rxjs.operators;
+
+        // Todo Item Component
+        @Component({
+            selector: 'todo-item',
+            template: `
+                <div class="item">
+                    <span>{{ item }}</span>
+                    <button (click)="onRemove.emit()">Remove</button>
+                </div>
+            `
+        })
+        class TodoItemComponent {
+            @Input() item;
+            @Output() onRemove = new EventEmitter();
+        }
+
+        // Main App Component
+        @Component({
+            selector: 'my-app',
+            template: `
+                <div class="app">
+                    <h1><span class="angular-logo">🅰️</span> Simple Angular App</h1>
+
+                    <!-- Counter Section -->
+                    <div>
+                        <p>Counter Example:</p>
+                        <div class="counter">{{ count }}</div>
+                        <button (click)="increment()">
+                            Count: {{ count }}
+                        </button>
+                    </div>
+
+                    <!-- Todo List Section -->
+                    <div class="items">
+                        <h3>Todo List</h3>
+                        <div>
+                            <input
+                                type="text"
+                                [(ngModel)]="inputValue"
+                                (keyup.enter)="addItem()"
+                                placeholder="Add new item..."
+                            />
+                            <button (click)="addItem()">Add</button>
+                        </div>
+                        <todo-item
+                            *ngFor="let item of items; let i = index"
+                            [item]="item"
+                            (onRemove)="removeItem(i)">
+                        </todo-item>
+                        <p *ngIf="items.length === 0">No items yet!</p>
+                    </div>
+
+                    <!-- Fetch API Section -->
+                    <div class="api-section">
+                        <h3>📡 API Data (HttpClient + OnInit)</h3>
+                        <p *ngIf="loading" class="loading">Loading users...</p>
+                        <p *ngIf="error" class="error">Error: {{ error }}</p>
+                        <div *ngIf="!loading && !error" class="users">
+                            <div *ngFor="let user of users" class="user-card">
+                                <strong>{{ user.name }}</strong>
+                                <p>{{ user.email }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `
+        })
+        class AppComponent implements OnInit {
+            count = 0;
+            items = ['Learn Angular', 'Build an app'];
+            inputValue = '';
+
+            // Fetch API state
+            users = [];
+            loading = true;
+            error = null;
+
+            ngOnInit() {
+                // Fetch users on component init
+                this.fetchUsers();
+            }
+
+            increment() {
+                this.count++;
+            }
+
+            addItem() {
+                if (this.inputValue.trim()) {
+                    this.items.push(this.inputValue.trim());
+                    this.inputValue = '';
+                }
+            }
+
+            removeItem(index) {
+                this.items.splice(index, 1);
+            }
+
+            fetchUsers() {
+                fetch('https://jsonplaceholder.typicode.com/users?_limit=5')
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Failed to fetch');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        this.users = data;
+                        this.loading = false;
+                    })
+                    .catch(err => {
+                        this.error = err.message;
+                        this.loading = false;
+                    });
+            }
+        }
+
+        // Simple NgModel directive (two-way binding)
+        @Directive({
+            selector: '[ngModel]',
+            host: {
+                '[value]': 'value',
+                '(input)': 'onInput($event)'
+            }
+        })
+        class NgModelDirective {
+            @Input() ngModel;
+            @Output() ngModelChange = new EventEmitter();
+
+            get value() {
+                return this.ngModel;
+            }
+
+            onInput(event) {
+                this.ngModelChange.emit(event.target.value);
+            }
+        }
+
+        // Directive decorator helper
+        function Directive(config) {
+            return function(target) {
+                Object.assign(target.prototype, config.host || {});
+                const inputs = [];
+                const outputs = [];
+                for (const key in target.prototype) {
+                    if (key.startsWith('ngModel') && key !== 'ngModel') {
+                        outputs.push({ propName: key.replace('ngModel', '').toLowerCase(), templateName: key.replace('ngModel', '').toLowerCase() });
+                    } else if (config.inputs && config.inputs.includes(key)) {
+                        inputs.push({ propName: key, templateName: key });
+                    }
+                }
+                target.annotations = [new ng.core.Directive({
+                    selector: config.selector,
+                    inputs: inputs,
+                    outputs: outputs
+                })];
+                return target;
+            };
+        }
+
+        // Apply directive decorator
+        Directive({
+            selector: '[ngModel]',
+            host: {
+                '[value]': 'value',
+                '(input)': 'onInput($event)'
+            },
+            inputs: ['ngModel'],
+            outputs: ['ngModelChange']
+        })(NgModelDirective);
+
+        // App Module
+        @NgModule({
+            imports: [BrowserModule, CommonModule],
+            declarations: [AppComponent, TodoItemComponent, NgModelDirective],
+            bootstrap: [AppComponent]
+        })
+        class AppModule {}
+
+        // Bootstrap the application
+        platformBrowserDynamic().bootstrapModule(AppModule)
+            .catch(err => console.error(err));
+    </script>
+</body>
+</html>
